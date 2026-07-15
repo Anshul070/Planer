@@ -85,6 +85,7 @@ export function ProfileAuth() {
             providerScopes={{
               google: "https://www.googleapis.com/auth/calendar.events",
             }}
+            redirectTo={typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}
           />
         </div>
       </DialogContent>
