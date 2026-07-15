@@ -1,0 +1,142 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-soft: 0 1px 2px 0 oklch(0.35 0.05 40 / 0.05), 0 8px 24px -8px oklch(0.35 0.05 40 / 0.12);
+  --shadow-glow: 0 0 0 1px oklch(0.55 0.14 175 / 0.15), 0 12px 32px -12px oklch(0.55 0.14 175 / 0.35);
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Warm cream + deep teal + coral accent */
+  --background: oklch(0.983 0.017 85);
+  --foreground: oklch(0.24 0.03 40);
+
+  --surface: oklch(0.965 0.023 80);
+  --surface-foreground: oklch(0.24 0.03 40);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.03 40);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.03 40);
+
+  --primary: oklch(0.45 0.09 190);
+  --primary-foreground: oklch(0.985 0.015 85);
+
+  --secondary: oklch(0.93 0.03 80);
+  --secondary-foreground: oklch(0.3 0.04 40);
+
+  --muted: oklch(0.94 0.02 80);
+  --muted-foreground: oklch(0.5 0.03 50);
+
+  --accent: oklch(0.75 0.14 40);
+  --accent-foreground: oklch(0.2 0.04 40);
+
+  --destructive: oklch(0.6 0.2 25);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --success: oklch(0.62 0.12 155);
+  --success-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.88 0.02 80);
+  --input: oklch(0.9 0.02 80);
+  --ring: oklch(0.55 0.11 190);
+}
+
+.dark {
+  --background: oklch(0.2 0.02 200);
+  --foreground: oklch(0.96 0.02 85);
+  --surface: oklch(0.24 0.02 200);
+  --surface-foreground: oklch(0.96 0.02 85);
+  --card: oklch(0.26 0.02 200);
+  --card-foreground: oklch(0.96 0.02 85);
+  --popover: oklch(0.26 0.02 200);
+  --popover-foreground: oklch(0.96 0.02 85);
+  --primary: oklch(0.75 0.12 180);
+  --primary-foreground: oklch(0.2 0.02 200);
+  --secondary: oklch(0.3 0.02 200);
+  --secondary-foreground: oklch(0.96 0.02 85);
+  --muted: oklch(0.3 0.02 200);
+  --muted-foreground: oklch(0.72 0.02 80);
+  --accent: oklch(0.75 0.14 40);
+  --accent-foreground: oklch(0.2 0.02 200);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.7 0.14 155);
+  --success-foreground: oklch(0.15 0.02 200);
+  --border: oklch(0.35 0.02 200);
+  --input: oklch(0.32 0.02 200);
+  --ring: oklch(0.7 0.12 180);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* Subtle bubble tail */
+@utility bubble-ai {
+  background: linear-gradient(180deg, oklch(0.98 0.02 85) 0%, oklch(0.955 0.028 80) 100%);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
+}
+@utility bubble-user {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
