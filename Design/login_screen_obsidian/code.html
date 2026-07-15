@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DinPlan - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "secondary-fixed-dim": "#71717a",
+                "on-surface-variant": "#a1a1aa",
+                "surface": "#0c0c0f",
+                "on-primary-container": "#ede9fe",
+                "primary-fixed": "#ede9fe",
+                "error-container": "#3b1111",
+                "surface-container-low": "#0f0f12",
+                "on-secondary-container": "#a1a1aa",
+                "surface-container": "#121215",
+                "surface-variant": "#18181b",
+                "inverse-surface": "#fafafa",
+                "on-primary-fixed": "#2e1065",
+                "primary-container": "#7c3aed",
+                "on-background": "#fafafa",
+                "on-secondary-fixed": "#18181b",
+                "on-tertiary-container": "#bbf7d0",
+                "surface-container-high": "#18181b",
+                "on-primary-fixed-variant": "#5b21b6",
+                "surface-dim": "#0c0c0f",
+                "tertiary": "#34d399",
+                "on-tertiary": "#001a12",
+                "on-primary": "#0a0012",
+                "surface-bright": "#18181b",
+                "on-tertiary-fixed-variant": "#047857",
+                "on-error": "#1a0000",
+                "on-secondary-fixed-variant": "#3f3f46",
+                "secondary-container": "#27272a",
+                "surface-container-highest": "#1e1e22",
+                "outline": "#52525b",
+                "inverse-primary": "#5b21b6",
+                "background": "#09090b",
+                "secondary": "#71717a",
+                "tertiary-fixed-dim": "#6ee7b7",
+                "on-secondary": "#09090b",
+                "tertiary-container": "#065f46",
+                "tertiary-fixed": "#bbf7d0",
+                "on-error-container": "#fca5a5",
+                "error": "#ef4444",
+                "primary-fixed-dim": "#c4b5fd",
+                "primary": "#a78bfa",
+                "surface-container-lowest": "#09090b",
+                "secondary-fixed": "#a1a1aa",
+                "on-tertiary-fixed": "#003318",
+                "inverse-on-surface": "#09090b",
+                "surface-tint": "#a78bfa",
+                "outline-variant": "#27272a",
+                "on-surface": "#fafafa"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {},
+        "fontFamily": {
+                "headline": [
+                        "Geist"
+                ],
+                "display": [
+                        "Geist"
+                ],
+                "body": [
+                        "Geist"
+                ],
+                "label": [
+                        "Geist"
+                ]
+        },
+        "fontSize": {}
+},
+    },
+  }
+</script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-center items-center p-5 text-on-background bg-background">
+<main class="w-full max-w-md flex flex-col items-center gap-8">
+<!-- Illustration / Header -->
+<div class="flex flex-col items-center gap-2 text-center">
+<div class="w-32 h-32 mb-4 bg-secondary-container rounded-full flex items-center justify-center shadow-[0px_4px_20px_rgba(0,0,0,0.5)] relative overflow-hidden">
+<span class="material-symbols-outlined text-[64px] text-primary" style="font-variation-settings: 'FILL' 1;">
+                    light_mode
+                </span>
+<div class="absolute inset-0 bg-primary/10 animate-pulse rounded-full"></div>
+</div>
+<h1 class="font-headline text-2xl font-bold md:text-3xl text-primary">
+                DinPlan
+            </h1>
+<p class="font-body text-base text-on-surface-variant max-w-[250px]">
+                Aapka friendly daily schedule planner.
+            </p>
+</div>
+<!-- Action Buttons -->
+<div class="w-full flex flex-col gap-3 mt-8">
+<button class="w-full flex items-center justify-center gap-2 bg-surface text-on-surface font-label text-sm font-semibold py-4 px-6 rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.2)] border border-outline-variant hover:bg-surface-container transition-all active:scale-[0.98]">
+<img class="w-5 h-5 object-contain" data-alt="A clean, minimalist vector icon of the Google 'G' logo, featuring the classic red, yellow, green, and blue colors. The icon is set against a pure white background to blend seamlessly into a soft minimalist app design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkDv9a4X7qOO3VdeZNDGtIZUhXQ-DzWXq6uL67AnJOOMS6iv-a1pYxm0O8bX-df0X86a5HYFlU7UFuCnKrVNm2d06kl7nplVAYVeLkAT42up8Deey7tDdvacLw-hsTMlVsFA6eDi3hugaAf3G6USi1TvIKyd-mP3OCVa4jRn5ll6fzIRzpWk_fdyuZ0GaVXt1Okjv6RZNsMWCtRdIpbv98tQB7eEdQvLvTIi0yXGx97tb0RDKKdkVxh1wNOO3X3d18EHGH81xsJQ"/>
+<span>Continue with Google</span>
+</button>
+<div class="flex items-center gap-4 my-2">
+<div class="flex-1 h-px bg-outline-variant/30"></div>
+<span class="font-label text-xs font-medium text-on-surface-variant">or</span>
+<div class="flex-1 h-px bg-outline-variant/30"></div>
+</div>
+<form class="w-full flex flex-col gap-3">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                        mail
+                    </span>
+<input class="w-full bg-surface-container border border-outline-variant rounded-2xl py-4 pl-12 pr-4 font-body text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 shadow-[0px_4px_20px_rgba(0,0,0,0.1)] transition-all" placeholder="Enter your email" type="email"/>
+</div>
+<button class="w-full bg-primary text-on-primary font-label text-sm font-semibold py-4 px-6 rounded-2xl shadow-[0px_4px_20px_rgba(0,0,0,0.3)] hover:bg-primary/90 transition-all active:scale-[0.98] flex items-center justify-center gap-2" type="button">
+                    Send Magic Link
+                    <span class="material-symbols-outlined text-sm">
+                        auto_awesome
+                    </span>
+</button>
+</form>
+</div>
+<!-- Footer terms -->
+<p class="font-label text-xs text-on-surface-variant/60 text-center mt-4">
+            By continuing, you agree to our Terms &amp; Privacy Policy.
+        </p>
+</main>
+</body></html>

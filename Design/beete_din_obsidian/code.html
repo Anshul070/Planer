@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Beete Din - DinPlan</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "secondary-fixed-dim": "#71717a",
+                "on-surface-variant": "#a1a1aa",
+                "surface": "#0c0c0f",
+                "on-primary-container": "#ede9fe",
+                "primary-fixed": "#ede9fe",
+                "error-container": "#3b1111",
+                "surface-container-low": "#0f0f12",
+                "on-secondary-container": "#a1a1aa",
+                "surface-container": "#121215",
+                "surface-variant": "#18181b",
+                "inverse-surface": "#fafafa",
+                "on-primary-fixed": "#2e1065",
+                "primary-container": "#7c3aed",
+                "on-background": "#fafafa",
+                "on-secondary-fixed": "#18181b",
+                "on-tertiary-container": "#bbf7d0",
+                "surface-container-high": "#18181b",
+                "on-primary-fixed-variant": "#5b21b6",
+                "surface-dim": "#0c0c0f",
+                "tertiary": "#34d399",
+                "on-tertiary": "#001a12",
+                "on-primary": "#0a0012",
+                "surface-bright": "#18181b",
+                "on-tertiary-fixed-variant": "#047857",
+                "on-error": "#1a0000",
+                "on-secondary-fixed-variant": "#3f3f46",
+                "secondary-container": "#27272a",
+                "surface-container-highest": "#1e1e22",
+                "outline": "#52525b",
+                "inverse-primary": "#5b21b6",
+                "background": "#09090b",
+                "secondary": "#71717a",
+                "tertiary-fixed-dim": "#6ee7b7",
+                "on-secondary": "#09090b",
+                "tertiary-container": "#065f46",
+                "tertiary-fixed": "#bbf7d0",
+                "on-error-container": "#fca5a5",
+                "error": "#ef4444",
+                "primary-fixed-dim": "#c4b5fd",
+                "primary": "#a78bfa",
+                "surface-container-lowest": "#09090b",
+                "secondary-fixed": "#a1a1aa",
+                "on-tertiary-fixed": "#003318",
+                "inverse-on-surface": "#09090b",
+                "surface-tint": "#a78bfa",
+                "outline-variant": "#27272a",
+                "on-surface": "#fafafa"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "container-margin": "20px",
+                "inline-gap": "8px",
+                "section-gap": "32px",
+                "card-padding": "16px",
+                "stack-gap": "12px"
+        },
+        "fontFamily": {
+                "headline": [
+                        "Geist"
+                ],
+                "display": [
+                        "Geist"
+                ],
+                "body": [
+                        "Geist"
+                ],
+                "label": [
+                        "Geist"
+                ],
+                "body-md": [
+                        "Geist"
+                ],
+                "headline-lg-mobile": [
+                        "Geist"
+                ],
+                "headline-lg": [
+                        "Geist"
+                ],
+                "label-sm": [
+                        "Geist"
+                ],
+                "label-md": [
+                        "Geist"
+                ],
+                "body-lg": [
+                        "Geist"
+                ],
+                "headline-md": [
+                        "Geist"
+                ]
+        },
+        "fontSize": {
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-lg": [
+                        "28px",
+                        {
+                                "lineHeight": "36px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "label-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "26px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-md": [
+                        "22px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        /* Smooth scrolling and basic reset */
+        html { scroll-behavior: smooth; }
+        body { -webkit-tap-highlight-color: transparent; }
+        
+        /* Soft breath shadow as defined in style guide */
+        .shadow-soft-breath {
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Hide scrollbar for cleaner look on mobile */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col relative selection:bg-primary-container/30">
+<!-- TopAppBar -->
+<header class="w-full top-0 sticky bg-surface/90 backdrop-blur-md shadow-sm z-40 border-b border-outline-variant/30">
+<div class="flex items-center justify-between px-container-margin h-16 w-full">
+<button aria-label="Menu" class="w-10 h-10 flex items-center justify-center rounded-lg text-primary hover:bg-surface-container-high transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary font-bold tracking-tight">DinPlan</h1>
+<button aria-label="User Profile" class="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant hover:opacity-80 transition-opacity">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="A portrait of a young Indian adult smiling warmly in a bright, sunlit room, wearing casual modern clothing. Soft, natural lighting creates a welcoming and optimistic mood, matching a minimalist, high-key digital aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsUOYZDs96WdbwhaUr09oAQMdj-SPHpLaz0tq7EEWojMTHsj2UVSG-D3mT5lpJrBuTReQF9Vtl5vYEqc4ejYYr4QaTXscSKgBHntSfSnNCKBtK6XsS9nvZ80Oq4-kaRHo87fHL1dpB5yGpy5hGC83pu1KWsxIhCw_RgoqLaJqKFMy872_Ad0APYRXrN1j1uGZPrwejV6S9SxM9yuS77XDZmHM5haJaceAZB_Ar3jN9EWYhKmOM0Wlsz47i6CK1-6FxKiiNjtHFUQ"/>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-container-margin pt-6 pb-[120px] flex flex-col gap-section-gap max-w-md mx-auto w-full">
+<!-- Streak Card (Obsidian) -->
+<section class="bg-surface-container-high border border-outline-variant text-on-surface rounded-lg p-[20px] shadow-soft-breath flex items-center justify-between transition-transform active:scale-[0.98]">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center text-primary text-2xl">
+                    🔥
+                </div>
+<div>
+<h2 class="font-headline-md text-headline-md font-bold mb-1">3 din se on track ho!</h2>
+<p class="font-label-md text-label-md text-on-surface-variant">Keep the momentum going</p>
+</div>
+</div>
+</section>
+<!-- History List Area -->
+<section class="flex flex-col gap-4">
+<h3 class="font-headline-md text-headline-md text-on-surface-variant ml-1 mb-2">Pichle Din</h3>
+<div class="flex flex-col gap-stack-gap">
+<!-- History Row 1: Kal -->
+<button class="bg-surface-container border border-outline-variant/50 rounded-lg p-card-padding shadow-soft-breath flex items-center justify-between text-left transition-all hover:bg-surface-container-high active:scale-[0.98] active:shadow-none group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex flex-col items-center justify-center text-primary">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Jul</span>
+<span class="font-headline-md text-headline-md leading-none text-primary">12</span>
+</div>
+<div>
+<p class="font-body-lg text-body-lg font-medium text-on-surface">Kal</p>
+<div class="flex items-center gap-2 mt-1">
+<div class="w-16 h-1.5 bg-surface-variant rounded-full overflow-hidden border border-outline-variant/30">
+<div class="h-full bg-primary rounded-full w-4/5"></div>
+</div>
+<span class="font-label-md text-label-md text-secondary">4/5 done</span>
+</div>
+</div>
+</div>
+<div class="w-8 h-8 rounded-lg flex items-center justify-center bg-surface group-hover:bg-surface-variant transition-colors text-secondary">
+<span class="material-symbols-outlined text-xl" data-icon="chevron_right">chevron_right</span>
+</div>
+</button>
+<!-- History Row 2 -->
+<button class="bg-surface-container border border-outline-variant/50 rounded-lg p-card-padding shadow-soft-breath flex items-center justify-between text-left transition-all hover:bg-surface-container-high active:scale-[0.98] active:shadow-none group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex flex-col items-center justify-center text-primary">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Jul</span>
+<span class="font-headline-md text-headline-md leading-none text-primary">11</span>
+</div>
+<div>
+<p class="font-body-lg text-body-lg font-medium text-on-surface">Thursday</p>
+<div class="flex items-center gap-2 mt-1">
+<div class="w-16 h-1.5 bg-surface-variant rounded-full overflow-hidden border border-outline-variant/30">
+<div class="h-full bg-tertiary rounded-full w-full"></div>
+</div>
+<span class="font-label-md text-label-md text-tertiary font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                    5/5 done
+                                </span>
+</div>
+</div>
+</div>
+<div class="w-8 h-8 rounded-lg flex items-center justify-center bg-surface group-hover:bg-surface-variant transition-colors text-secondary">
+<span class="material-symbols-outlined text-xl" data-icon="chevron_right">chevron_right</span>
+</div>
+</button>
+<!-- History Row 3 -->
+<button class="bg-surface-container border border-outline-variant/50 rounded-lg p-card-padding shadow-soft-breath flex items-center justify-between text-left transition-all hover:bg-surface-container-high active:scale-[0.98] active:shadow-none group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex flex-col items-center justify-center text-primary">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Jul</span>
+<span class="font-headline-md text-headline-md leading-none text-primary">10</span>
+</div>
+<div>
+<p class="font-body-lg text-body-lg font-medium text-on-surface">Wednesday</p>
+<div class="flex items-center gap-2 mt-1">
+<div class="w-16 h-1.5 bg-surface-variant rounded-full overflow-hidden border border-outline-variant/30">
+<div class="h-full bg-secondary rounded-full w-2/5"></div>
+</div>
+<span class="font-label-md text-label-md text-secondary">2/5 done</span>
+</div>
+</div>
+</div>
+<div class="w-8 h-8 rounded-lg flex items-center justify-center bg-surface group-hover:bg-surface-variant transition-colors text-secondary">
+<span class="material-symbols-outlined text-xl" data-icon="chevron_right">chevron_right</span>
+</div>
+</button>
+<!-- Empty State Example Row -->
+<div class="bg-surface/50 border-2 border-dashed border-outline-variant/30 rounded-lg p-card-padding flex items-center justify-center text-center mt-2 opacity-80">
+<div class="flex flex-col items-center gap-2">
+<span class="material-symbols-outlined text-outline-variant text-3xl mb-1">sentiment_dissatisfied</span>
+<p class="font-body-md text-body-md text-secondary">9 Jul — Abhi tak plan nahi bana</p>
+<button class="font-label-md text-label-md text-primary mt-1 hover:underline underline-offset-4 decoration-primary/30 decoration-2">chalo shuru karein!</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-lg bg-surface-container/90 backdrop-blur-md border-t border-outline-variant/30 shadow-[0px_-4px_20px_rgba(0,0,0,0.2)] md:hidden">
+<div class="flex justify-around items-center h-20 pb-safe px-4 max-w-md mx-auto w-full">
+<!-- Inactive: Chat -->
+<button class="flex flex-col items-center justify-center w-16 gap-1 hover:bg-surface-variant rounded-lg py-2 transition-all duration-200 active:scale-90 text-secondary">
+<span class="material-symbols-outlined text-[28px]" data-icon="chat_bubble">chat_bubble</span>
+<span class="font-label-sm text-label-sm truncate w-full text-center">Chat</span>
+</button>
+<!-- Inactive: Aaj ka Plan -->
+<button class="flex flex-col items-center justify-center w-[84px] gap-1 hover:bg-surface-variant rounded-lg py-2 transition-all duration-200 active:scale-90 text-secondary relative">
+<!-- FAB-like central prominence -->
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center mb-0.5 border border-outline-variant/30">
+<span class="material-symbols-outlined text-[24px]" data-icon="calendar_today">calendar_today</span>
+</div>
+<span class="font-label-sm text-label-sm truncate w-full text-center">Aaj ka Plan</span>
+</button>
+<!-- Active: Beete Din -->
+<button class="flex flex-col items-center justify-center w-16 gap-1 hover:bg-primary/10 rounded-lg py-2 transition-all duration-200 active:scale-90 text-primary font-bold">
+<span class="material-symbols-outlined text-[28px]" data-icon="history" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="font-label-sm text-label-sm truncate w-full text-center">Beete Din</span>
+</button>
+</div>
+</nav>
+</body></html>

@@ -6,29 +6,12 @@ import { chatTurn } from "@/lib/chat.functions";
 import { saveGoogleTokens, syncToCalendar } from "@/lib/calendar.functions";
 import { getAnonymousUserId, todayDate } from "@/lib/anon-user";
 import type { ChatMessage, DayDoc, Goal, Task } from "@/lib/dinplan-types";
-import {
-  Check,
-  Send,
-  Sparkles,
-  RotateCcw,
-  Loader2,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-  MessageCircle,
-  CalendarCheck,
-  History,
-  ChevronLeft,
-  Flame,
-  CalendarDays,
-  CalendarPlus,
-  Trash2,
-  Edit2,
-  Plus,
-  X,
-} from "lucide-react";
-import { ProfileAuth } from "@/components/profile-auth";
+
+import { ProfileAvatar, LoginModal } from "@/components/profile-auth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+
 
 export const Route = createFileRoute("/")({ component: DinPlanApp });
 
@@ -205,7 +188,7 @@ function DinPlanApp() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>("plan");
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -235,6 +218,65 @@ function DinPlanApp() {
   const prevConfirmedRef = useRef<boolean>(false);
   const [history, setHistory] = useState<DayDoc[]>([]);
   const [viewingDay, setViewingDay] = useState<DayDoc | null>(null);
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  // Past tasks states
+  const [pastTasksToAsk, setPastTasksToAsk] = useState<Task[]>([]);
+  const [isPastTasksDialogOpen, setIsPastTasksDialogOpen] = useState(false);
+  const [checkedPastTasks, setCheckedPastTasks] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!day || !day.tasks || day.tasks.length === 0) return;
+    
+    if (day.day_date !== todayDate()) return;
+    
+    // Check if we already prompted today for this session/user
+    const storageKey = `dinplan_past_prompt_${todayDate()}_${userId}`;
+    if (localStorage.getItem(storageKey) === "true") return;
+
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTimeVal = currentHours * 60 + currentMinutes;
+
+    const incompletePastTasks = day.tasks.filter(t => {
+      if (t.done) return false;
+      const [hStr, mStr] = (t.endTime || "").split(":");
+      const h = Number(hStr);
+      const m = Number(mStr);
+      if (isNaN(h) || isNaN(m)) return false;
+      const endHours = h < 4 ? h + 24 : h; // handle past midnight
+      const endVal = endHours * 60 + m;
+      return endVal < currentTimeVal;
+    });
+
+    if (incompletePastTasks.length > 0) {
+      setPastTasksToAsk(incompletePastTasks);
+      
+      const initialChecked: Record<string, boolean> = {};
+      incompletePastTasks.forEach(t => {
+         initialChecked[t.id] = false;
+      });
+      setCheckedPastTasks(initialChecked);
+      setIsPastTasksDialogOpen(true);
+      localStorage.setItem(storageKey, "true");
+    }
+  }, [day, userId]);
+
+  async function handlePastTasksDone() {
+    if (!day) return;
+    const newTasks = day.tasks.map(t => {
+      if (checkedPastTasks[t.id]) {
+        return { ...t, done: true };
+      }
+      return t;
+    });
+    setDay({ ...day, tasks: newTasks });
+    await persist({ tasks: newTasks });
+    setIsPastTasksDialogOpen(false);
+  }
 
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editStartTime, setEditStartTime] = useState("");
@@ -290,10 +332,43 @@ function DinPlanApp() {
       .select("*")
       .eq("user_id", id)
       .order("day_date", { ascending: false })
-      .limit(60);
-    if (data) setHistory(data as unknown as DayDoc[]);
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (data) {
+      const allDays = data as unknown as DayDoc[];
+      const uniqueDays = [];
+      const seen = new Set();
+      for (const d of allDays) {
+        if (!seen.has(d.day_date)) {
+          seen.add(d.day_date);
+          uniqueDays.push(d);
+        }
+      }
+      setHistory(uniqueDays);
+    }
   }
 
+  async function toggleTask(taskId: string) {
+    if (!day) return;
+    if (userId.startsWith("anon_")) {
+      setShowLoginModal(true);
+      return;
+    }
+    const newTasks = day.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t));
+    setDay({ ...day, tasks: newTasks });
+    await persist({ tasks: newTasks });
+  }
+
+  async function toggleGoal(goalId: string) {
+    if (!day) return;
+    if (userId.startsWith("anon_")) {
+      setShowLoginModal(true);
+      return;
+    }
+    const newGoals = day.goals.map((g) => (g.id === goalId ? { ...g, done: !g.done } : g));
+    setDay({ ...day, goals: newGoals });
+    await persist({ goals: newGoals });
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -654,19 +729,6 @@ function DinPlanApp() {
     setListening(false);
   }
 
-  async function toggleTask(id: string) {
-    if (!day) return;
-    await persist({
-      tasks: day.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    });
-  }
-  async function toggleGoal(id: string) {
-    if (!day) return;
-    await persist({
-      goals: day.goals.map((g) => (g.id === id ? { ...g, done: !g.done } : g)),
-    });
-  }
-
   async function newDay() {
     if (!userId || !day) return;
     
@@ -702,59 +764,77 @@ function DinPlanApp() {
     }
   }
 
-  const doneCount = useMemo(() => day?.tasks.filter((t) => t.done).length ?? 0, [day]);
-  const totalCount = day?.tasks.length ?? 0;
+  const doneCount = day?.tasks.filter((t) => t.done).length || 0;
+  const totalCount = day?.tasks.length || 0;
   const pct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-  const streak = useMemo(() => computeStreak(history), [history]);
+  // If anonymous, streak is always 0.
+  const streak = userId.startsWith("anon_") ? 0 : computeStreak(history);
 
+  useEffect(() => {
+    if (userId && !userId.startsWith("anon_") && typeof streak === "number") {
+      const timeout = setTimeout(() => {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            (supabase as any).from("profiles").upsert({
+              id: user.id,
+              full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "DinPlanner",
+              avatar_url: user.user_metadata?.avatar_url || "",
+              streak: streak,
+              last_active: new Date().toISOString()
+            }).then(({ error }: { error: any }) => {
+              if (error) console.error("Failed to sync profile:", error);
+            });
+          }
+        });
+      }, 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [userId, streak]);
+
+  function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col">
-        {/* Header */}
-        <header className="sticky top-0 z-10 border-b border-border bg-background/85 px-5 py-4 backdrop-blur">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="grid h-9 w-9 place-items-center rounded-2xl bg-primary text-primary-foreground">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div>
-                <h1 className="text-lg leading-none font-display">DinPlan</h1>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Aapka Hinglish day planner
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={toggleVoiceMode}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  voiceMode
-                    ? "border-accent bg-accent text-accent-foreground shadow-sm shadow-accent/20"
-                    : "border-border bg-surface text-foreground/80 hover:bg-muted"
-                }`}
-                title="Voice Mode"
-              >
-                {voiceMode ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <Mic className="h-3.5 w-3.5" />} Voice Mode
-              </button>
-              <button
-                onClick={newDay}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground/80 hover:bg-muted"
-                title="Naya din plan karo"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> Naya din
-              </button>
-              <ProfileAuth />
-            </div>
+    <div className="antialiased text-on-surface font-body-md min-h-screen flex flex-col relative pb-32 bg-background">
+      {/* Top App Bar */}
+      <header className="bg-surface dark:bg-surface-dim w-full top-0 sticky shadow-sm flex items-center justify-between px-container-margin py-3 min-h-[64px] z-40">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary shrink-0">
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>auto_awesome</span>
           </div>
-        </header>
+          <div className="flex flex-col">
+            <h1 className="font-display text-2xl text-on-surface tracking-tight leading-tight">DinPlan</h1>
+            <p className="text-[11px] text-on-surface-variant leading-tight mt-0.5">Aapka Hinglish day<br />planner</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={toggleTheme}
+            className="hover:bg-surface-container-high transition-transform active:scale-95 p-1 rounded-full flex items-center justify-center text-primary"
+            title="Toggle Theme"
+          >
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>contrast</span>
+          </button>
+          <ProfileAvatar onLoginClick={() => setShowLoginModal(true)} />
+        </div>
+      </header>
 
+      {/* Main Content Canvas */}
+      <main className="flex-grow px-container-margin pt-6 max-w-2xl mx-auto w-full">
         {/* VOICE MODE OVERLAY */}
         {voiceMode && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-background/95 px-6 py-12 backdrop-blur-xl">
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-surface/95 px-6 py-12 backdrop-blur-xl">
             <div className="w-full text-center mt-8">
-              <p className="text-sm font-medium text-accent">Voice Mode</p>
-              <h2 className="mt-4 text-2xl font-display text-foreground">
+              <p className="text-sm text-tertiary">Voice Mode</p>
+              <h2 className="mt-4 font-display text-headline-lg text-primary">
                 {sending
                   ? "Samajh raha hu..."
                   : transcribing
@@ -768,33 +848,33 @@ function DinPlanApp() {
             <div className="relative flex flex-col items-center justify-center h-48 w-48 mt-10">
               {(listening || sending || transcribing) && (
                 <>
-                  <div className="absolute inset-0 animate-ping rounded-full bg-accent/20" style={{ animationDuration: '3s' }} />
-                  <div className="absolute inset-4 animate-pulse rounded-full bg-accent/30" />
+                  <div className="absolute inset-0 animate-ping rounded-full bg-primary/20" style={{ animationDuration: '3s' }} />
+                  <div className="absolute inset-4 animate-pulse rounded-full bg-primary/30" />
                 </>
               )}
-              <div className="z-10 grid h-32 w-32 place-items-center rounded-full bg-accent text-accent-foreground shadow-lg shadow-accent/30">
-                <Mic className="h-12 w-12" />
+              <div className="z-10 grid h-32 w-32 place-items-center rounded-full bg-primary text-on-primary soft-shadow">
+                <span className="material-symbols-outlined text-[48px]">mic</span>
               </div>
               
               {listening && !sending && !transcribing && (
                 <div className="absolute -bottom-8 flex flex-col items-center">
-                  <div ref={recordingTimerRef} className="text-3xl font-mono font-bold text-accent">
+                  <div ref={recordingTimerRef} className="text-3xl font-body-lg text-primary">
                     28s
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Maximum</span>
+                  <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mt-1">Maximum</span>
                 </div>
               )}
             </div>
 
             <div className="w-full mb-10">
-              <p className="mb-10 text-center text-lg text-foreground/80 font-medium whitespace-pre-wrap max-h-40 overflow-y-auto">
+              <p className="mb-10 text-center font-body-lg text-on-surface whitespace-pre-wrap max-h-40 overflow-y-auto">
                 {day?.messages[day.messages.length - 1]?.role === "assistant" 
                     ? day.messages[day.messages.length - 1].content 
                     : ""}
               </p>
               <button
                 onClick={toggleVoiceMode}
-                className="mx-auto block rounded-full bg-secondary px-8 py-3 text-sm font-semibold text-secondary-foreground shadow-sm hover:bg-secondary/80"
+                className="mx-auto block rounded-full bg-surface-variant px-8 py-3 font-label-md text-label-md text-on-surface shadow-sm hover:bg-surface-container"
               >
                 Exit Voice Mode
               </button>
@@ -804,20 +884,20 @@ function DinPlanApp() {
 
         {/* CHAT TAB */}
         {tab === "chat" && (
-          <>
-            <section className="flex-1 space-y-3 px-5 py-5">
+          <div className="flex flex-col h-full relative">
+            <div className="flex-1 space-y-4 pb-40">
               {streak > 0 && (
-                <div className="flex items-center gap-2 rounded-2xl border border-accent/30 bg-accent/10 px-3.5 py-2 text-sm text-accent-foreground">
-                  <Flame className="h-4 w-4 shrink-0 text-accent" />
+                <div className="flex items-center gap-2 rounded-2xl border border-tertiary/30 bg-tertiary-container/30 px-4 py-3 text-sm text-on-tertiary-container">
+                  <span className="material-symbols-outlined text-tertiary">local_fire_department</span>
                   <span>
-                    <span className="font-semibold">{streak} din</span> se on track ho, dost! Aise hi chalate raho.
+                    <span className="">{streak} din</span> se on track ho, dost!
                   </span>
                 </div>
               )}
 
               {!day && (
-                <div className="grid place-items-center py-16 text-sm text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                <div className="grid place-items-center py-16 text-primary">
+                  <span className="material-symbols-outlined animate-spin text-[32px]">progress_activity</span>
                 </div>
               )}
               {day?.messages.map((m, i) => (
@@ -826,8 +906,8 @@ function DinPlanApp() {
                   className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap ${
-                      m.role === "user" ? "bubble-user rounded-br-md" : "bubble-ai rounded-bl-md"
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 font-body-md text-body-md whitespace-pre-wrap ${
+                      m.role === "user" ? "bg-primary text-on-primary rounded-br-sm" : "bg-surface-container-high text-on-surface border border-outline-variant rounded-bl-sm"
                     }`}
                   >
                     {m.content}
@@ -836,7 +916,7 @@ function DinPlanApp() {
               ))}
               {sending && (
                 <div className="flex justify-start">
-                  <div className="bubble-ai flex items-center gap-2 rounded-2xl rounded-bl-md px-4 py-3 text-sm text-muted-foreground">
+                  <div className="bg-surface-container-high border border-outline-variant flex items-center gap-2 rounded-2xl rounded-bl-sm px-4 py-4 text-on-surface-variant">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:150ms]" />
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:300ms]" />
@@ -844,20 +924,20 @@ function DinPlanApp() {
                 </div>
               )}
               {error && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <div className="rounded-xl border border-error/30 bg-error-container/30 px-4 py-3 font-label-md text-error">
                   {error}
                 </div>
               )}
-              <div ref={chatEndRef} />
-            </section>
+              <div ref={chatEndRef} className="h-10" />
+            </div>
 
-            {/* Composer */}
-            <div className="sticky bottom-14 border-t border-border bg-background/95 px-4 py-3 backdrop-blur">
-              {(listening || transcribing) && (
-                <div className="mb-2 flex items-center gap-2 rounded-full bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent-foreground">
+            {/* Composer fixed at bottom above nav */}
+            <div className="fixed bottom-32 left-0 right-0 px-4 max-w-2xl mx-auto z-30">
+               {(listening || transcribing) && (
+                <div className="mb-2 flex items-center gap-2 w-max mx-auto rounded-full bg-surface-container-high px-4 py-2 font-label-sm text-label-sm text-primary border border-outline-variant">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                   </span>
                   {listening ? "Sun raha hu…" : "Samajh raha hu…"}
                 </div>
@@ -867,8 +947,24 @@ function DinPlanApp() {
                   e.preventDefault();
                   void handleSend();
                 }}
-                className="flex items-end gap-2"
+                className="flex items-center gap-2 bg-surface-container-high p-2 rounded-3xl border border-outline-variant"
               >
+                {speechSupported && (
+                  <button
+                    type="button"
+                    onClick={listening ? stopListening : startListening}
+                    disabled={sending || !day}
+                    className={`grid h-12 w-12 shrink-0 place-items-center rounded-full transition disabled:opacity-40 ${
+                      listening
+                        ? "bg-primary text-on-primary"
+                        : "text-on-surface-variant hover:bg-surface-variant hover:text-on-surface"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: listening ? "'FILL' 1" : "'FILL' 0" }}>
+                      {listening ? "mic_off" : "mic"}
+                    </span>
+                  </button>
+                )}
                 <textarea
                   ref={inputRef}
                   value={input}
@@ -880,472 +976,532 @@ function DinPlanApp() {
                     }
                   }}
                   rows={1}
-                  placeholder="Apna din batao… (ya mic dabao)"
-                  className="max-h-32 min-h-[44px] flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-2.5 text-[15px] leading-snug outline-none focus:border-primary focus:ring-2 focus:ring-ring/30"
+                  placeholder="Apna din batao..."
+                  className="max-h-32 min-h-[48px] flex-1 resize-none bg-transparent px-2 py-3 font-body-md text-on-surface outline-none placeholder:text-on-surface-variant"
                   disabled={sending || !day}
                 />
-                {speechSupported && (
-                  <button
-                    type="button"
-                    onClick={listening ? stopListening : startListening}
-                    disabled={sending || !day}
-                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border transition disabled:opacity-40 ${
-                      listening
-                        ? "border-transparent bg-accent text-accent-foreground"
-                        : "border-border bg-card text-foreground/80 hover:bg-muted"
-                    }`}
-                    aria-label={listening ? "Stop listening" : "Start voice input"}
-                    title={listening ? "Stop" : "Bolo"}
-                  >
-                    {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                  </button>
-                )}
                 <button
                   type="submit"
                   disabled={sending || !input.trim() || !day}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-soft transition disabled:opacity-40"
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary text-on-primary transition disabled:opacity-40 active:scale-95"
                 >
                   {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
                   ) : (
-                    <Send className="h-4 w-4" />
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
                   )}
                 </button>
               </form>
             </div>
-          </>
+          </div>
         )}
 
         {/* PLAN TAB */}
         {tab === "plan" && (
-          <section className="flex-1 px-5 py-5 pb-20">
+          <div className="pb-24">
             {!day && (
-              <div className="grid place-items-center py-16 text-sm text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
+              <div className="grid place-items-center py-16 text-primary">
+                <span className="material-symbols-outlined animate-spin text-[32px]">progress_activity</span>
               </div>
             )}
+            
             {day && day.tasks.length === 0 && day.goals.length === 0 && (
-              <div className="mt-10 rounded-3xl border border-dashed border-border bg-surface p-8 text-center">
-                <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary">
-                  <CalendarCheck className="h-5 w-5" />
+              <div className="mt-10 rounded-2xl border border-dashed border-outline-variant bg-surface-variant p-8 text-center">
+                <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_today</span>
                 </div>
-                <h2 className="text-lg font-display">Abhi plan khaali hai</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <h2 className="font-headline-md text-headline-md text-on-surface">Abhi plan khaali hai</h2>
+                <p className="mt-2 font-body-md text-on-surface-variant">
                   Chat tab mein jaake apna din batao — schedule yaha ban jayega.
                 </p>
                 <button
                   onClick={() => setTab("chat")}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-label-md text-label-md text-on-primary active:scale-95 transition-transform"
                 >
-                  <MessageCircle className="h-4 w-4" /> Chat khol
+                  <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>chat_bubble</span> Chat khol
                 </button>
               </div>
             )}
 
             {day && (day.tasks.length > 0 || day.goals.length > 0) && (
-              <div className="mb-6 flex items-center justify-center rounded-xl py-2 px-4 text-sm font-medium bg-primary/10 text-primary border border-primary/20">
-                Live updating 🟢
-              </div>
-            )}
-
-            {day && day.tasks.length > 0 && (
               <>
-                <div className="mb-3 flex items-baseline justify-between">
-                  <h2 className="text-xl font-display">Aaj ka schedule</h2>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {doneCount}/{totalCount} done
-                  </span>
+                <div className="mb-section-gap">
+                  <div className="flex justify-between items-end mb-3">
+                    <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-primary">Aaj ka Plan</h2>
+                    <span className="font-label-sm text-label-sm text-secondary">{doneCount}/{totalCount} done</span>
+                  </div>
+                  <div className="w-full bg-surface-container-high rounded-full h-2.5">
+                    <div className="bg-primary h-2.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                  </div>
                 </div>
-                <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-500"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <ul className="space-y-2">
-                  {day.tasks.map((t) => (
-                    <li key={t.id} className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 transition ${
-                          t.done
-                            ? "border-transparent bg-muted/60"
-                            : "border-border bg-card hover:border-primary/40"
-                        }`}>
-                        <button
-                          onClick={() => toggleTask(t.id)}
-                          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition ${
-                            t.done
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border"
-                          }`}
-                        >
-                          {t.done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-                        </button>
 
+                {day.tasks.length > 0 && (
+                  <div className="flex flex-col gap-stack-gap mb-section-gap relative">
+                    {/* Connecting Line (Visual only) */}
+                    <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-outline-variant/30 -z-10"></div>
+                    
+                    {day.tasks.map((t) => (
+                      <div key={t.id} className={`rounded-xl p-card-padding flex items-start gap-4 transition-all duration-500 ease-in-out ${t.done ? 'bg-emerald-900/80 dark:bg-purple-900/40 border-transparent [transform:rotateX(360deg)] opacity-70' : 'bg-surface-variant border border-outline-variant/30 [transform:rotateX(0deg)] opacity-100'}`}>
+                        <div className="flex-shrink-0 mt-1 cursor-pointer" onClick={() => toggleTask(t.id)}>
+                          <span className={`material-symbols-outlined ${t.done ? 'text-emerald-200 dark:text-purple-300' : 'text-outline'}`} style={{ fontVariationSettings: t.done ? "'FILL' 1" : "'FILL' 0" }}>
+                            {t.done ? 'check_circle' : 'radio_button_unchecked'}
+                          </span>
+                        </div>
+                        
                         {editingTaskId === t.id ? (
-                          <div className="flex-1 min-w-0 flex flex-col gap-2">
-                            <p className={`text-sm font-medium leading-tight ${t.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                              {t.task}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex-grow flex flex-col gap-2">
+                             <input 
+                                type="text" 
+                                value={newTaskName}
+                                onChange={e => setNewTaskName(e.target.value)}
+                                className="bg-background border border-outline-variant text-on-surface font-label-md text-label-md rounded-lg px-2 py-1 w-full focus:outline-none focus:border-primary"
+                                placeholder={t.task}
+                              />
+                             <div className="flex items-center gap-2">
                               <input 
                                 type="time" 
                                 value={editStartTime}
                                 onChange={e => setEditStartTime(e.target.value)}
-                                className="bg-background border border-border text-xs rounded px-2 py-1"
+                                className="bg-background border border-outline-variant text-on-surface font-label-sm text-label-sm rounded-lg px-2 py-1 flex-1 focus:outline-none focus:border-primary"
                               />
-                              <span className="text-muted-foreground text-xs">to</span>
+                              <span className="text-on-surface-variant font-label-sm text-label-sm">to</span>
                               <input 
                                 type="time" 
                                 value={editEndTime}
                                 onChange={e => setEditEndTime(e.target.value)}
-                                className="bg-background border border-border text-xs rounded px-2 py-1"
+                                className="bg-background border border-outline-variant text-on-surface font-label-sm text-label-sm rounded-lg px-2 py-1 flex-1 focus:outline-none focus:border-primary"
                               />
-                              <button onClick={() => handleSaveTaskEdit(t.id)} className="bg-primary text-primary-foreground font-medium text-xs rounded px-3 py-1.5 ml-auto">
-                                Save
-                              </button>
-                              <button onClick={() => setEditingTaskId(null)} className="bg-muted text-muted-foreground font-medium text-xs rounded px-3 py-1.5">
-                                Cancel
-                              </button>
+                            </div>
+                            <div className="flex gap-2 justify-end mt-2">
+                              <button onClick={() => setEditingTaskId(null)} className="font-label-sm text-label-sm text-on-surface-variant px-3 py-1.5 rounded-lg border border-outline-variant">Cancel</button>
+                              <button onClick={() => { handleSaveTaskEdit(t.id); setNewTaskName(""); }} className="font-label-sm text-label-sm bg-primary text-on-primary px-3 py-1.5 rounded-lg">Save</button>
                             </div>
                           </div>
                         ) : (
-                          <div className="min-w-0 flex-1 flex justify-between items-center">
-                            <div className="flex-1 cursor-pointer" onClick={() => toggleTask(t.id)}>
-                              <p
-                                className={`text-sm font-medium leading-tight ${
-                                  t.done ? "line-through text-muted-foreground" : "text-foreground"
-                                }`}
-                              >
-                                {t.task}
-                              </p>
-                              <p 
-                                className="mt-0.5 text-xs text-muted-foreground tabular-nums flex items-center gap-1 w-max cursor-pointer hover:text-primary transition-colors" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingTaskId(t.id);
-                                  setEditStartTime(t.startTime);
-                                  setEditEndTime(t.endTime);
-                                }}
-                              >
-                                {t.startTime} – {t.endTime}
-                                <Edit2 className="h-3 w-3 inline opacity-50" />
-                              </p>
+                          <div className="flex-grow cursor-pointer" onClick={() => toggleTask(t.id)}>
+                            <h3 className={`font-label-md text-label-md ${t.done ? 'text-emerald-100 dark:text-purple-200 line-through decoration-emerald-300/50 dark:decoration-purple-300/50' : 'text-on-surface'}`}>
+                              {t.task}
+                            </h3>
+                            <div className={`flex items-center gap-1 mt-1 ${t.done ? 'text-emerald-200/70 dark:text-purple-300/70' : 'text-secondary'}`} onClick={(e) => { e.stopPropagation(); setEditingTaskId(t.id); setEditStartTime(t.startTime); setEditEndTime(t.endTime); setNewTaskName(t.task); }}>
+                              <span className="material-symbols-outlined text-[14px]">schedule</span>
+                              <span className="font-label-sm text-label-sm">{t.startTime}–{t.endTime}</span>
+                              <span className="material-symbols-outlined text-[12px] ml-1 opacity-50 hover:opacity-100">edit</span>
                             </div>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTask(t.id);
-                              }}
-                              className="p-2 -mr-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors shrink-0"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
                           </div>
                         )}
-                    </li>
-                  ))}
-                </ul>
+                        <button onClick={() => handleDeleteTask(t.id)} className="text-outline hover:text-error transition-colors p-2 -mr-2">
+                          <span className="material-symbols-outlined">delete</span>
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {isAddingTask ? (
+                      <div className="bg-surface-variant rounded-xl p-card-padding border border-outline-variant/30 flex flex-col gap-3">
+                         <p className="font-label-md text-label-md text-on-surface">Add new task</p>
+                          <input 
+                            type="text" 
+                            placeholder="Task name"
+                            value={newTaskName}
+                            onChange={e => setNewTaskName(e.target.value)}
+                            className="bg-background border border-outline-variant text-on-surface font-body-md text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:border-primary"
+                          />
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="time" 
+                              value={newStartTime}
+                              onChange={e => setNewStartTime(e.target.value)}
+                              className="bg-background border border-outline-variant text-on-surface font-label-sm text-sm rounded-lg px-2 py-1.5 flex-1 focus:outline-none focus:border-primary"
+                            />
+                            <span className="text-on-surface-variant text-sm">to</span>
+                            <input 
+                              type="time" 
+                              value={newEndTime}
+                              onChange={e => setNewEndTime(e.target.value)}
+                              className="bg-background border border-outline-variant text-on-surface font-label-sm text-sm rounded-lg px-2 py-1.5 flex-1 focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2 mt-1">
+                            <button onClick={() => setIsAddingTask(false)} className="font-label-sm text-label-sm text-on-surface-variant px-4 py-2 rounded-lg border border-outline-variant hover:bg-surface-container">
+                              Cancel
+                            </button>
+                            <button onClick={handleAddTask} disabled={!newTaskName || !newStartTime || !newEndTime} className="font-label-sm text-label-sm bg-primary text-on-primary px-4 py-2 rounded-lg disabled:opacity-50">
+                              Add Task
+                            </button>
+                          </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setIsAddingTask(true)} className="flex items-center justify-center gap-2 py-3 px-4 border border-dashed border-primary/50 rounded-xl text-primary hover:bg-primary-container/10 transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">add</span>
+                        <span className="font-label-md text-label-md">Add task</span>
+                      </button>
+                    )}
+                  </div>
+                )}
 
-                {isAddingTask ? (
-                  <div className="mt-4 p-4 rounded-2xl border border-border bg-card flex flex-col gap-3">
-                    <p className="text-sm font-medium text-foreground">Add new task</p>
-                    <input 
-                      type="text" 
-                      placeholder="Task name (e.g. Reading)"
-                      value={newTaskName}
-                      onChange={e => setNewTaskName(e.target.value)}
-                      className="bg-background border border-border text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:border-primary"
-                    />
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="time" 
-                        value={newStartTime}
-                        onChange={e => setNewStartTime(e.target.value)}
-                        className="bg-background border border-border text-sm rounded-lg px-2 py-1.5 flex-1 focus:outline-none focus:border-primary"
-                      />
-                      <span className="text-muted-foreground text-sm">to</span>
-                      <input 
-                        type="time" 
-                        value={newEndTime}
-                        onChange={e => setNewEndTime(e.target.value)}
-                        className="bg-background border border-border text-sm rounded-lg px-2 py-1.5 flex-1 focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2 mt-1">
-                      <button onClick={() => setIsAddingTask(false)} className="bg-muted text-muted-foreground font-medium text-sm rounded-lg px-4 py-2">
-                        Cancel
-                      </button>
-                      <button onClick={handleAddTask} disabled={!newTaskName || !newStartTime || !newEndTime} className="bg-primary text-primary-foreground font-medium text-sm rounded-lg px-4 py-2 disabled:opacity-50">
-                        Add Task
-                      </button>
+                {day.goals.length > 0 && (
+                  <div className="mb-section-gap">
+                    <h3 className="font-label-md text-label-md text-secondary mb-3 uppercase tracking-wider">Aaj ke Goals</h3>
+                    <div className="flex flex-wrap gap-inline-gap">
+                      {day.goals.map((g) => (
+                        <div 
+                          key={g.id} 
+                          onClick={() => toggleGoal(g.id)}
+                          className={`px-4 py-2 rounded-xl font-label-sm text-label-sm flex items-center gap-2 cursor-pointer transition-colors border ${
+                            g.done ? "bg-primary text-on-primary border-primary" : "bg-surface-container-high text-primary border-primary/20 hover:bg-surface-container-highest"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            {g.done ? "check_circle" : "flag"}
+                          </span>
+                          <span className={g.done ? "line-through opacity-80" : ""}>{g.text}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ) : (
-                  <button 
-                    onClick={() => setIsAddingTask(true)}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-3.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors text-sm font-medium"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add task
-                  </button>
                 )}
+
+                <div className="mt-8 mb-12 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-between mb-4">
+                    <span className="font-label-md text-label-md text-on-surface">Remind me before:</span>
+                    <select 
+                      value={reminderMin} 
+                      onChange={e => setReminderMin(Number(e.target.value))}
+                      className="bg-surface-container border border-outline-variant font-label-sm text-on-surface rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    >
+                      <option value={5}>5 mins</option>
+                      <option value={10}>10 mins</option>
+                      <option value={15}>15 mins</option>
+                      <option value={30}>30 mins</option>
+                    </select>
+                  </div>
+                  
+                  {syncError && (
+                    <div className="mb-4 text-sm text-error bg-error-container/30 rounded-lg p-3 w-full text-center">
+                      {syncError}
+                    </div>
+                  )}
+
+                  {syncError?.includes("disconnected") ? (
+                    <button
+                      onClick={async () => {
+                        await supabase.auth.signInWithOAuth({
+                          provider: "google",
+                          options: { queryParams: { access_type: "offline", prompt: "consent" }, scopes: "https://www.googleapis.com/auth/calendar.events" }
+                        });
+                      }}
+                      className="w-full bg-primary text-on-primary font-label-md text-label-md py-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform soft-shadow"
+                    >
+                      <span className="material-symbols-outlined">event</span> Connect Google Calendar
+                    </button>
+                  ) : (
+                    <button
+                      disabled={day.tasks.length === 0 || syncing}
+                      onClick={async () => {
+                        if (!day || !userId) return;
+                        if (userId.startsWith("anon_")) { setShowLoginModal(true); return; }
+                        setSyncing(true); setSyncError(null);
+                        try {
+                          const res = await runSync({ data: { userId, dayDate: day.day_date, tasks: day.tasks, goals: day.goals, reminderMinutes: reminderMin } });
+                          if (res.success) {
+                            const updated = { ...day, tasks: res.tasks, goals: res.goals, synced_event_ids: res.syncedEventIds };
+                            setDay(updated);
+                            await persist({ tasks: res.tasks, goals: res.goals, synced_event_ids: res.syncedEventIds });
+                          }
+                        } catch (e: any) { setSyncError(e.message || "Failed to sync"); } finally { setSyncing(false); }
+                      }}
+                      className={`w-full font-label-md text-label-md py-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform ${
+                        day.tasks.length === 0 || syncing ? "bg-surface-container text-on-surface-variant border border-outline-variant" : "bg-primary text-on-primary soft-shadow"
+                      }`}
+                    >
+                      {syncing ? (
+                        <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                      ) : day.synced_event_ids?.length ? (
+                        <span className="material-symbols-outlined">check_circle</span>
+                      ) : (
+                        <span className="material-symbols-outlined">event</span>
+                      )}
+                      {syncing ? "Syncing..." : day.synced_event_ids?.length ? "Calendar par synced" : "Google Calendar par bhejo"}
+                    </button>
+                  )}
+                  {!day.synced_event_ids?.length && !syncing && (
+                    <span className="text-secondary font-label-sm text-label-sm mt-3 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">sync_problem</span> Not synced
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-12 pt-6 border-t border-outline-variant flex justify-center pb-8">
+                  <button 
+                    onClick={newDay}
+                    className="text-error hover:bg-error-container/30 px-4 py-2 rounded-full font-label-md text-label-md transition-colors flex items-center gap-2"
+                    title="Naya din plan karo"
+                  >
+                    <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>restart_alt</span>
+                    Reset Plan (Naya Din)
+                  </button>
+                </div>
               </>
             )}
-
-            {day && day.goals.length > 0 && (
-              <div className="mt-6">
-                <h3 className="mb-2 text-base font-display text-foreground/90">Aaj ke goals</h3>
-                <ul className="space-y-1.5">
-                  {day.goals.map((g) => (
-                    <li key={g.id}>
-                      <button
-                        onClick={() => toggleGoal(g.id)}
-                        className="flex w-full items-start gap-2.5 rounded-xl bg-card px-3 py-2.5 text-left border border-border"
-                      >
-                        <span
-                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 ${
-                            g.done
-                              ? "border-accent bg-accent text-accent-foreground"
-                              : "border-border"
-                          }`}
-                        >
-                          {g.done && <Check className="h-3 w-3" strokeWidth={3} />}
-                        </span>
-                        <span
-                          className={`text-sm ${
-                            g.done ? "line-through text-muted-foreground" : "text-foreground"
-                          }`}
-                        >
-                          {g.text}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            {day && (day.tasks.length > 0 || day.goals.length > 0) && (
-              <div className="mt-8 pt-6 border-t border-border space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">Remind me before:</span>
-                  <select 
-                    value={reminderMin} 
-                    onChange={e => setReminderMin(Number(e.target.value))}
-                    className="bg-card border border-border text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value={5}>5 mins</option>
-                    <option value={10}>10 mins</option>
-                    <option value={15}>15 mins</option>
-                    <option value={30}>30 mins</option>
-                  </select>
-                </div>
-                
-                {syncError && (
-                  <div className="text-xs text-red-500 bg-red-500/10 rounded p-2">
-                    {syncError}
-                  </div>
-                )}
-                
-                {syncError?.includes("disconnected") ? (
-                  <button
-                    onClick={async () => {
-                      await supabase.auth.signInWithOAuth({
-                        provider: "google",
-                        options: {
-                          queryParams: { access_type: "offline", prompt: "consent" },
-                          scopes: "https://www.googleapis.com/auth/calendar.events"
-                        }
-                      });
-                    }}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-                  >
-                    <CalendarDays className="h-4 w-4" /> Connect Google Calendar
-                  </button>
-                ) : (
-                  <button
-                    disabled={day.tasks.length === 0 || syncing}
-                    onClick={async () => {
-                      if (!day || !userId) return;
-                      if (userId.startsWith("anon_")) {
-                        setSyncError("Please log in first to sync to calendar.");
-                        return;
-                      }
-                      setSyncing(true);
-                      setSyncError(null);
-                      try {
-                        const res = await runSync({
-                          data: {
-                            userId,
-                            dayDate: day.day_date,
-                            tasks: day.tasks,
-                            goals: day.goals,
-                            reminderMinutes: reminderMin,
-                          }
-                        });
-                        if (res.success) {
-                          const updated = { ...day, tasks: res.tasks, goals: res.goals, synced_event_ids: res.syncedEventIds };
-                          setDay(updated);
-                          await persist({ tasks: res.tasks, goals: res.goals, synced_event_ids: res.syncedEventIds });
-                        }
-                      } catch (e: any) {
-                        setSyncError(e.message || "Failed to sync");
-                      } finally {
-                        setSyncing(false);
-                      }
-                    }}
-                    className={`w-full py-4 rounded-xl font-bold text-white shadow-xl transition-all duration-300 transform ${
-                      day.tasks.length === 0 || syncing
-                        ? "bg-slate-300 shadow-none"
-                        : "bg-primary hover:bg-primary/90"
-                    }`}
-                  >
-                    {syncing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : day.synced_event_ids?.length ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <CalendarPlus className="h-4 w-4" />
-                    )}
-                    {syncing ? "Syncing..." : day.synced_event_ids?.length ? "Calendar par synced ✅" : "Google Calendar par bhejo"}
-                  </button>
-                )}
-              </div>
-            )}
-          </section>
+          </div>
         )}
 
         {/* HISTORY TAB */}
         {tab === "history" && (
-          <section className="flex-1 px-5 py-5 pb-20">
+          <div className="pb-24">
             {viewingDay ? (
               <ReadOnlyDayView day={viewingDay} onBack={() => setViewingDay(null)} />
             ) : (
               <>
-                <div className="mb-4 flex items-center gap-3 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3">
-                  <Flame className="h-6 w-6 shrink-0 text-accent" />
-                  <div className="min-w-0">
-                    <p className="text-base font-display leading-tight">
-                      {streak > 0
-                        ? `${streak} din se on track ho!`
-                        : "Aaj se streak shuru karo"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {streak > 0
-                        ? "Roz plan banate raho — streak tootne mat dena."
-                        : "Aaj ka plan banao aur roz aage badhao."}
-                    </p>
+                <div className="bg-surface-container-high rounded-xl p-4 mb-6 flex items-start gap-4 border border-outline-variant">
+                  <span className="material-symbols-outlined text-primary text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
+                  <div className="flex-1">
+                    {userId.startsWith("anon_") ? (
+                      <>
+                        <h3 className="font-label-md text-label-md text-on-surface">
+                          Login to track your streak!
+                        </h3>
+                        <p className="font-body-md text-sm text-on-surface-variant mt-1 mb-2">
+                          Track your daily progress and maintain a streak by logging in.
+                        </p>
+                        <button 
+                          onClick={() => setShowLoginModal(true)}
+                          className="bg-primary text-on-primary font-label-sm text-xs px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+                        >
+                          Sign In
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="font-label-md text-label-md text-on-surface">
+                          {streak > 0 ? `${streak} din se on track ho!` : "Aaj se streak shuru karo"}
+                        </h3>
+                        <p className="font-body-md text-sm text-on-surface-variant mt-1">
+                          {streak > 0 ? "Roz plan banate raho — streak tootne mat dena." : "Aaj ka plan banao aur roz aage badhao."}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <h2 className="mb-3 text-xl font-display">Beete din</h2>
+                <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-4">Beete Din</h2>
+                
                 {history.filter((h) => h.day_date !== todayDate() && h.tasks.length > 0).length === 0 ? (
-                  <div className="mt-6 rounded-3xl border border-dashed border-border bg-surface p-8 text-center">
-                    <p className="text-sm text-muted-foreground">
+                  <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-variant p-8 text-center mt-4">
+                    <p className="font-body-md text-on-surface-variant">
                       Abhi tak koi beeta din nahi hai. Roz plan banao — yaha history dikhegi.
                     </p>
                   </div>
                 ) : (
-                  <ul className="space-y-2">
-                    {history
-                      .filter((h) => h.day_date !== todayDate() && h.tasks.length > 0)
-                      .map((h) => {
-                        const done = h.tasks.filter((t) => t.done).length;
-                        const total = h.tasks.length;
-                        const goalsDone = h.goals.filter((g) => g.done).length;
-                        const goalsTotal = h.goals.length;
-                        const complete = total > 0 && done === total;
-                        return (
-                          <li key={h.id}>
-                            <button
-                              onClick={() => setViewingDay(h)}
-                              className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left transition hover:border-primary/40"
-                            >
-                              <div
-                                className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-semibold ${
-                                  complete ? "bg-primary text-primary-foreground" : "bg-muted text-foreground/70"
-                                }`}
-                              >
-                                {done}/{total}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-foreground">
-                                  {formatDayLabel(h.day_date)}
-                                </p>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
-                                  {done}/{total} tasks done
-                                  {goalsTotal > 0 && ` • ${goalsDone}/${goalsTotal} goals`}
-                                </p>
-                              </div>
-                            </button>
-                          </li>
-                        );
-                      })}
-                  </ul>
+                  <div className="flex flex-col gap-3">
+                    {history.filter((h) => h.day_date !== todayDate() && h.tasks.length > 0).map((h) => {
+                      const done = h.tasks.filter((t) => t.done).length;
+                      const total = h.tasks.length;
+                      const goalsDone = h.goals.filter((g) => g.done).length;
+                      const goalsTotal = h.goals.length;
+                      const complete = total > 0 && done === total;
+                      return (
+                        <div 
+                          key={h.id} 
+                          onClick={() => setViewingDay(h)}
+                          className="bg-surface-variant border border-outline-variant/30 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-high transition-colors"
+                        >
+                          <div>
+                            <h3 className="font-label-md text-label-md text-on-surface">{formatDayLabel(h.day_date)}</h3>
+                            <p className="font-label-sm text-label-sm text-secondary mt-1">
+                              {done}/{total} tasks done {goalsTotal > 0 && ` • ${goalsDone}/${goalsTotal} goals`}
+                            </p>
+                          </div>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-label-sm ${complete ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+                            {Math.round((done / total) * 100)}%
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </>
             )}
-          </section>
+          </div>
         )}
+      </main>
 
-        {/* Bottom tab bar */}
-        <nav className="sticky bottom-0 z-20 grid grid-cols-3 border-t border-border bg-background/95 backdrop-blur">
-          <TabButton
-            active={tab === "chat"}
-            onClick={() => { setTab("chat"); setViewingDay(null); }}
-            icon={<MessageCircle className="h-5 w-5" />}
-            label="Chat"
-          />
-          <TabButton
-            active={tab === "plan"}
-            onClick={() => { setTab("plan"); setViewingDay(null); }}
-            icon={<CalendarCheck className="h-5 w-5" />}
-            label="Aaj ka Plan"
-            badge={totalCount > 0 ? `${doneCount}/${totalCount}` : undefined}
-          />
-          <TabButton
-            active={tab === "history"}
-            onClick={() => { setTab("history"); setViewingDay(null); }}
-            icon={<History className="h-5 w-5" />}
-            label="Beete Din"
-            badge={streak > 0 ? `🔥${streak}` : undefined}
-          />
+      {/* Bottom Nav Bar Wrapper for cutout shadow */}
+      <div className="fixed bottom-0 w-full z-50 drop-shadow-[0px_-4px_10px_rgba(0,0,0,0.1)] dark:drop-shadow-[0px_-4px_10px_rgba(0,0,0,0.4)] pointer-events-none">
+        
+        {/* The Voice FAB placed outside the nav mask */}
+        <button 
+          onClick={toggleVoiceMode}
+          className={`absolute left-1/2 -translate-x-1/2 -top-6 bg-primary text-on-primary rounded-full w-14 h-14 flex items-center justify-center active:scale-90 transition-transform z-10 pointer-events-auto shadow-md ${voiceMode ? 'animate-pulse' : ''}`}
+        >
+          <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
+        </button>
+
+        {/* The Masked Nav Bar */}
+        <nav 
+          className="bg-surface/95 dark:bg-surface-dim/95 backdrop-blur-md w-full rounded-t-[1.5rem] flex justify-between items-end h-24 pb-3 px-2 pointer-events-auto"
+          style={{ 
+            maskImage: "radial-gradient(circle at 50% 0%, transparent 38px, black 39px)", 
+            WebkitMaskImage: "radial-gradient(circle at 50% 0%, transparent 38px, black 39px)"
+          }}
+        >
+          {/* Left Side Tabs */}
+          <div className="flex-1 flex justify-evenly">
+            <TabButton
+              active={tab === "chat" && !showLeaderboard}
+              onClick={() => { setTab("chat"); setViewingDay(null); setShowLeaderboard(false); }}
+              icon="chat_bubble"
+              label="Chat"
+            />
+            <TabButton
+              active={tab === "plan" && !showLeaderboard}
+              onClick={() => { setTab("plan"); setViewingDay(null); setShowLeaderboard(false); }}
+              icon="calendar_today"
+              label="Aaj ka Plan"
+            />
+          </div>
+          
+          {/* Spacer for FAB Cutout */}
+          <div className="w-16 flex-shrink-0"></div>
+
+          {/* Right Side Tabs */}
+          <div className="flex-1 flex justify-evenly">
+            <TabButton
+              active={showLeaderboard}
+              onClick={() => setShowLeaderboard(true)}
+              icon="trophy"
+              label="Leaderboard"
+            />
+            <TabButton
+              active={tab === "history" && !showLeaderboard}
+              onClick={() => { setTab("history"); setViewingDay(null); setShowLeaderboard(false); }}
+              icon="history"
+              label="Beete Din"
+            />
+          </div>
         </nav>
-
       </div>
+
+
+      <Dialog open={isPastTasksDialogOpen} onOpenChange={setIsPastTasksDialogOpen}>
+        <DialogContent className="sm:max-w-md w-[95%] max-w-[400px] mx-auto rounded-3xl p-6 bg-surface border border-outline-variant shadow-soft data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
+          <DialogHeader>
+            <DialogTitle className="font-headline-md text-on-surface">Missed any tasks?</DialogTitle>
+            <DialogDescription className="font-body-md text-on-surface-variant">
+              It looks like the time for these tasks has passed. Did you complete them?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4 max-h-[50vh] overflow-y-auto">
+            {pastTasksToAsk.map((task) => (
+              <label key={task.id} className="flex items-center gap-3 p-3 rounded-xl border border-outline-variant cursor-pointer hover:bg-surface-container transition-colors">
+                <Checkbox 
+                  checked={checkedPastTasks[task.id] || false}
+                  onCheckedChange={(checked) => setCheckedPastTasks(prev => ({ ...prev, [task.id]: !!checked }))}
+                />
+                <div className="flex flex-col">
+                  <span className="font-body-md text-on-surface">{task.task}</span>
+                  <span className="font-label-sm text-tertiary">{task.startTime} - {task.endTime}</span>
+                </div>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handlePastTasksDone}
+              className="w-full bg-primary text-on-primary font-label-md py-4 rounded-xl flex items-center justify-center cursor-pointer active:scale-[0.98] transition-transform"
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modals */}
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+      <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} currentUserId={userId} />
     </div>
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-  badge,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  badge?: string;
-}) {
+function LeaderboardModal({ isOpen, onClose, currentUserId }: { isOpen: boolean, onClose: () => void, currentUserId: string }) {
+  const [leaders, setLeaders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoading(true);
+      (supabase as any).from("profiles").select("*").gt("streak", 0).order("streak", { ascending: false }).limit(50)
+        .then(({ data }: { data: any }) => {
+           if (data) setLeaders(data);
+           setLoading(false);
+        });
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-medium transition ${
-        active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-      }`}
-    >
-      <div className="relative">
-        {icon}
-        {badge && (
-          <span className="absolute -right-4 -top-1 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-semibold text-accent-foreground">
-            {badge}
-          </span>
+    <div className="fixed inset-0 z-[60] bg-background flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+      <header className="bg-surface sticky top-0 px-container-margin h-16 flex items-center justify-between border-b border-outline-variant/30">
+        <button onClick={onClose} className="p-2 -ml-2 text-on-surface hover:bg-surface-container-high rounded-full transition-colors">
+          <span className="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h2 className="font-headline text-lg text-primary flex items-center gap-2">
+          <span className="material-symbols-outlined text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>trophy</span>
+          Leaderboard
+        </h2>
+        <div className="w-10"></div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto p-container-margin pb-24">
+        {loading ? (
+           <div className="flex justify-center p-8">
+             <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+           </div>
+        ) : leaders.length === 0 ? (
+           <div className="flex flex-col items-center justify-center mt-12 text-center">
+             <span className="material-symbols-outlined text-6xl text-on-surface-variant/30 mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>social_leaderboard</span>
+             <p className="text-on-surface-variant font-body">No planners yet. Start building your streak!</p>
+           </div>
+        ) : (
+           <div className="flex flex-col gap-3">
+             {leaders.map((l, idx) => (
+                <div key={l.id} className={`flex items-center gap-4 p-4 rounded-2xl ${l.id === currentUserId ? 'bg-primary/10 border border-primary/30' : 'bg-surface-container-high border border-outline-variant/20'}`}>
+                   <div className="font-headline text-on-surface-variant w-6 text-center">
+                     {idx + 1}
+                   </div>
+                   {l.avatar_url ? (
+                     <img src={l.avatar_url} alt={l.full_name} className="w-10 h-10 rounded-full object-cover" />
+                   ) : (
+                     <div className="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-sm">
+                       {l.full_name?.charAt(0).toUpperCase() || 'U'}
+                     </div>
+                   )}
+                   <div className="flex-1 min-w-0">
+                     <p className="font-label-md text-on-surface">{l.full_name || "Anonymous User"}</p>
+                     {l.id === currentUserId && <p className="text-[10px] text-primary uppercase tracking-wider mt-0.5">You</p>}
+                   </div>
+                   <div className="flex items-center gap-1 bg-surface-variant/50 px-3 py-1 rounded-full border border-outline-variant/30">
+                     <span className="material-symbols-outlined text-tertiary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
+                     <span className="font-label text-on-surface">{l.streak}</span>
+                   </div>
+                </div>
+             ))}
+           </div>
         )}
-      </div>
-      <span>{label}</span>
-    </button>
+      </main>
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, icon, label, isCenter }: { active: boolean; onClick: () => void; icon: string; label: string; isCenter?: boolean }) {
+  return (
+    <div 
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center transition-all duration-200 active:scale-90 hover:bg-surface-container-high p-2 rounded-lg cursor-pointer ${isCenter ? 'mt-2 w-full' : 'w-16'} ${active ? 'text-primary ' : 'text-secondary'}`}
+    >
+      <span className="material-symbols-outlined mb-1" style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>{icon}</span>
+      <span className="font-label-sm text-label-sm text-[10px] text-center leading-tight">{label}</span>
+    </div>
   );
 }
 
@@ -1357,67 +1513,60 @@ function ReadOnlyDayView({ day, onBack }: { day: DayDoc; onBack: () => void }) {
     <div>
       <button
         onClick={onBack}
-        className="mb-4 inline-flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground/80 hover:bg-muted"
+        className="mb-4 inline-flex items-center gap-1 rounded-full border border-outline-variant bg-surface-container px-3 py-1.5 font-label-sm text-label-sm text-on-surface hover:bg-surface-container-high"
       >
-        <ChevronLeft className="h-3.5 w-3.5" /> Beete din
+        <span className="material-symbols-outlined text-[16px]">chevron_left</span> Wapas
       </button>
-      <div className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-xl font-display">{formatDayLabel(day.day_date)} ka plan</h2>
-        <span className="text-xs font-medium text-muted-foreground">{done}/{total} done</span>
+      <div className="mb-section-gap">
+        <div className="flex justify-between items-end mb-3">
+          <h2 className="font-headline-lg-mobile text-headline-lg-mobile text-primary">{formatDayLabel(day.day_date)}</h2>
+          <span className="font-label-sm text-label-sm text-secondary">{done}/{total} done</span>
+        </div>
+        <div className="w-full bg-surface-container-high rounded-full h-2.5">
+          <div className="bg-primary h-2.5 rounded-full" style={{ width: `${pct}%` }} />
+        </div>
       </div>
-      <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-      </div>
+      
       {day.tasks.length > 0 && (
-        <ul className="space-y-2">
+        <div className="flex flex-col gap-stack-gap mb-section-gap relative">
+          <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-outline-variant/30 -z-10"></div>
           {day.tasks.map((t) => (
-            <li
-              key={t.id}
-              className={`flex items-center gap-3 rounded-2xl border p-3.5 ${
-                t.done ? "border-transparent bg-muted/60" : "border-border bg-card"
-              }`}
-            >
-              <span
-                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${
-                  t.done ? "border-primary bg-primary text-primary-foreground" : "border-border"
-                }`}
-              >
-                {t.done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium leading-tight ${t.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                  {t.task}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-                  {t.startTime} – {t.endTime}
-                </p>
+            <div key={t.id} className={`rounded-xl p-card-padding flex items-start gap-4 transition-all duration-500 ease-in-out ${t.done ? 'bg-emerald-900/80 dark:bg-purple-900/40 border-transparent [transform:rotateX(360deg)] opacity-70' : 'bg-surface-variant border border-outline-variant/30 [transform:rotateX(0deg)] opacity-100'}`}>
+              <div className="flex-shrink-0 mt-1">
+                <span className={`material-symbols-outlined ${t.done ? 'text-emerald-200 dark:text-purple-300' : 'text-outline'}`} style={{ fontVariationSettings: t.done ? "'FILL' 1" : "'FILL' 0" }}>
+                  {t.done ? 'check_circle' : 'radio_button_unchecked'}
+                </span>
               </div>
-            </li>
+              <div className="flex-grow">
+                <h3 className={`font-label-md text-label-md ${t.done ? 'text-emerald-100 dark:text-purple-200 line-through decoration-emerald-300/50 dark:decoration-purple-300/50' : 'text-on-surface'}`}>
+                  {t.task}
+                </h3>
+                <div className={`flex items-center gap-1 mt-1 ${t.done ? 'text-emerald-200/70 dark:text-purple-300/70' : 'text-secondary'}`}>
+                  <span className="material-symbols-outlined text-[14px]">schedule</span>
+                  <span className="font-label-sm text-label-sm">{t.startTime} - {t.endTime}</span>
+                </div>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
+      
       {day.goals.length > 0 && (
-        <div className="mt-6">
-          <h3 className="mb-2 text-base font-display text-foreground/90">Us din ke goals</h3>
-          <ul className="space-y-1.5">
+        <div className="mb-section-gap">
+          <h3 className="font-label-md text-label-md text-secondary mb-3 uppercase tracking-wider">Goals</h3>
+          <div className="flex flex-wrap gap-inline-gap">
             {day.goals.map((g) => (
-              <li
-                key={g.id}
-                className="flex items-start gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5"
+              <div 
+                key={g.id} 
+                className={`px-4 py-2 rounded-xl font-label-sm text-label-sm flex items-center gap-2 border ${g.done ? "bg-primary text-on-primary border-primary" : "bg-surface-container-high text-primary border-primary/20"}`}
               >
-                <span
-                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 ${
-                    g.done ? "border-accent bg-accent text-accent-foreground" : "border-border"
-                  }`}
-                >
-                  {g.done && <Check className="h-3 w-3" strokeWidth={3} />}
+                <span className="material-symbols-outlined text-[16px]">
+                  {g.done ? "check_circle" : "flag"}
                 </span>
-                <span className={`text-sm ${g.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                  {g.text}
-                </span>
-              </li>
+                <span className={g.done ? "line-through opacity-80" : ""}>{g.text}</span>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
     </div>

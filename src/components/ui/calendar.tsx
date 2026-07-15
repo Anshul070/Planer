@@ -58,7 +58,7 @@ function Calendar({
           defaultClassNames.month_caption,
         ),
         dropdowns: cn(
-          "flex h-(--cell-size) w-full items-center justify-center gap-1.5 text-sm font-medium",
+          "flex h-(--cell-size) w-full items-center justify-center gap-1.5 text-sm ",
           defaultClassNames.dropdowns,
         ),
         dropdown_root: cn(
@@ -67,7 +67,7 @@ function Calendar({
         ),
         dropdown: cn("bg-popover absolute inset-0 opacity-0", defaultClassNames.dropdown),
         caption_label: cn(
-          "select-none font-medium",
+          "select-none ",
           captionLayout === "label"
             ? "text-sm"
             : "[&>svg]:text-muted-foreground flex h-8 items-center gap-1 rounded-md pl-2 pr-1 text-sm [&>svg]:size-3.5",
